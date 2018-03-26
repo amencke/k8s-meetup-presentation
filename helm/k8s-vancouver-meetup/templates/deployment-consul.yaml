@@ -1,0 +1,45 @@
+{{if eq .Values.deployConsulServer true -}}
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: {{ .Values.consulServerName }}
+  labels:
+    app: {{ .Values.consulServerName }}
+    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.consulServerName }}
+    spec:
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "consul:latest"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["consul"]
+          args: ["agent", "-server", "-data-dir=/consul/data", "-config-file=/consul/config/{{ .Values.serverFile }}"]
+          #ports:
+          #  - containerPort: {{ .Values.service.internalPort }}
+          resources:
+{{ toYaml .Values.resources | indent 12 }}
+          {{ if .Values.consulPorts }}
+          ports:
+          {{range .Values.consulPorts}}
+          - containerPort: {{ .value }}
+            name: {{ .name }}
+          {{- end}}
+          {{- end}}
+          {{if eq .Values.mountConsulConfig true }}
+          volumeMounts:
+            - name: {{ .Values.mountNameConsul }}
+              mountPath: {{ .Values.mountPathConsul }}
+      volumes:
+        - name: {{ .Values.mountNameConsul }}
+          configMap:
+            name: {{ .Values.consulConfigMapName }}
+            items:
+            - key: {{ .Values.serverKey }}
+              path: {{ .Values.serverFile }}
+{{- end }}
+{{- end }}

@@ -1,0 +1,104 @@
+name: k8s-vancouver-meetup
+deployConsulSidecar: true
+deployNginxSidecar: true
+deployConsulServer: true
+consul_client_conf: |
+        {
+          "server": false,
+          "bootstrap": false,
+          "acl_token": "anonymous",
+          "data_dir": "/consul/data",
+          "log_level": "INFO",
+          "enable_syslog": false,
+          "rejoin_after_leave": true,
+          "ui": false,
+          "datacenter": "vancouver-1",
+          "start_join": [
+                  "consul-server.default.svc.cluster.local"
+          ],
+          "ports": {
+            "http": 8500
+          },
+          "service": {
+            "name": "k8s-vancouver-meetup",
+            "tags": [
+              "http",
+              "mesh"
+            ],
+            "port": 2368
+          }
+        }
+consul_server_conf: |
+        {
+          "server": true,
+          "bootstrap": true,
+          "acl_token": "anonymous",
+          "acl_default_policy": "allow",
+          "acl_down_policy": "extend-cache",
+          "data_dir": "/consul/data",
+          "log_level": "INFO",
+          "enable_syslog": false,
+          "rejoin_after_leave": true,
+          "ui": true,
+          "datacenter": "vancouver-1",
+          "acl_datacenter": "vancouver-1",
+          "addresses" : {
+            "http": "0.0.0.0"
+          },
+          "ports": {
+            "http": 8500
+          },
+          "service": {
+            "name": "consul-server",
+            "tags": [
+              "http",
+              "mesh"
+            ],
+            "port": 8500
+          }
+        }
+
+# Values used to mount the consul ConfigMap
+consulConfigMapName: consul-config-map
+mountConsulConfig: true
+mountPathConsul: /consul/config
+mountNameConsul: consul-config
+
+# Client specific config
+clientKey: client.vancouver.json 
+clientFile: client.vancouver.json
+
+# Server specific config
+consulServerName: consul-server
+consulServerPort: 8301
+serverKey: server.vancouver.json
+serverFile: server.vancouver.json
+
+# We need to expose some ports for consul to gossip 
+consulPorts:
+- name: dns
+  value: 8600
+- name: http
+  value: 8500
+- name: serf-lan
+  value: 8301
+- name: rpc
+  value: 8300
+
+servicePorts:
+- name: ghost
+  value: 2368
+- name: router-port
+  value: 80
+
+# Some environment variables used to bootstrap consul
+env:
+- name: CONSUL_DATACENTER
+  value: "vancouver-1"
+
+# docker-entrpoint.sh for nginx
+nginxConfigMapName: nginx-config-map
+mountNameNginx: nginx-entrypoint
+mountPathNginx: /usr/local/bin
+nginxConfigMapKey: docker-entrypoint.sh
+nginxConfigMapFileName: docker-entrypoint.sh

@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Values.nginxConfigMapName }}
+  labels:
+    chart: {{ .Chart.Name }}-{{ .Chart.Version }}
+    app: {{ .Values.name }}
+data:
+  # When the config map is mounted as a volume, these will be created as files.
+  docker-entrypoint.sh: |+ 
+  {{ range (.Files.Lines "entrypoint-nginx.sh") }} 
+  {{ . | indent 4 }} {{ end }} 

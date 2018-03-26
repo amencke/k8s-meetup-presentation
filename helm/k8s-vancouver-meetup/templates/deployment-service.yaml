@@ -1,0 +1,82 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: {{ .Values.name }}
+  labels:
+    app: {{ .Values.name }}
+    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.name }}
+    spec:
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            {{range .Values.servicePorts}}
+            - containerPort: {{ .value }}
+            {{- end}}
+          livenessProbe:
+            httpGet:
+              path: /
+              port: {{ .Values.service.internalPort }}
+          readinessProbe:
+            httpGet:
+              path: /
+              port: {{ .Values.service.internalPort }}
+          resources:
+{{ toYaml .Values.resources | indent 12 }}
+
+        {{if eq .Values.deployNginxSidecar true -}}
+        - name: nginx-sidecar
+          image: "nginx:latest"
+          command: ["/bin/bash"]
+          args: ["docker-entrypoint.sh"]
+          #command: ["sleep"]
+          #args: ["1000"]
+          {{ if .Values.env }}
+          env:
+          {{range .Values.env}}
+          - name: {{.name}}
+            value: {{ quote .value}}{{end}}
+          {{- end }}
+          volumeMounts:
+            - name: {{ .Values.mountNameNginx }}
+              mountPath: {{ .Values.mountPathNginx }}
+        {{- end }}
+
+        {{if eq .Values.deployConsulSidecar true -}}
+        - name: consul-sidecar
+          image: "consul:latest"
+          command: ["consul"]
+          args: ["agent", "-data-dir=/consul/data", "-config-file=/consul/config/{{ .Values.clientFile }}"]
+          {{ if .Values.env }}
+          env:
+          {{range .Values.env}}
+          - name: {{.name}}
+            value: {{ quote .value}}{{end}}
+          {{- end }}
+        {{- end }}
+          {{if eq .Values.mountConsulConfig true }}
+          volumeMounts:
+            - name: {{ .Values.mountNameConsul }}
+              mountPath: {{ .Values.mountPathConsul }}
+          {{- end }}
+      volumes:
+        - name: {{ .Values.mountNameConsul }}
+          configMap:
+            name: {{ .Values.consulConfigMapName }} 
+            items:
+            - key: {{ .Values.clientKey }}
+              path: {{ .Values.clientFile }}
+        - name: {{ .Values.mountNameNginx }}
+          configMap:
+            name: {{ .Values.nginxConfigMapName }}
+            defaultMode: 0777
+            items:
+              - key: {{ .Values.nginxConfigMapKey }}
+                path: {{ .Values.nginxConfigMapFileName }}
